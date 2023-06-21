@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <!-- 页面meta -->
+        <meta charset="utf-8">
+        <title>员工管理</title>
+        <!-- 引入样式 -->
+        <link rel="stylesheet" href="../plugins/elementui/index.css">
+        <link rel="stylesheet" href="../plugins/font-awesome/css/font-awesome.min.css">
+        <link rel="stylesheet" href="../css/style.css">
+    </head>
+
+    <body class="hold-transition">
+
+        <div id="app">
+
+            <div class="content-header">
+                <h1>员工管理</h1>
+            </div>
+
+            <div class="app-container">
+                <div class="box">
+                    <div class="filter-container">
+                        <el-input placeholder="员工姓名" style="width: 200px;" class="filter-item" v-model="queryMap.findName"></el-input>
+<!--                        <input type="text" value="员工姓名" id="in_name">-->
+                        <el-button class="dalfBut"  @click="findByName_2">查询</el-button>
+                        <el-button type="primary" class="butT"  @click="openSave()">新增员工</el-button>
+                    </div>
+
+                    <el-table size="small" current-row-key="id" :data="dataList" stripe highlight-current-row>
+                        <el-table-column type="index" align="center" label="序号"></el-table-column>
+<!--                        <el-table-column prop="id" label="员工id" align="center"></el-table-column>-->
+                        <el-table-column prop="type" label="员工类型" align="center"></el-table-column>
+                        <el-table-column prop="name" label="员工姓名" align="center"></el-table-column>
+                        <el-table-column prop="sex" label="员工性别" align="center"></el-table-column>
+                        <el-table-column prop="entryTime" label="入职时间"  align="center"></el-table-column>
+                        <el-table-column prop="description" label="描述" align="center"></el-table-column>
+                        <el-table-column label="操作" align="center">
+                            <template slot-scope="scope">
+                                <el-button type="primary" size="mini" @click="openSave(scope.row.id)">编辑</el-button>
+                                <el-button size="mini" type="danger" @click="deleteEmp(scope.row.id)">删除</el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+
+                    <div class="pagination-container">
+                        <el-pagination
+                            class="pagiantion"
+                            @size-change="handleSizeChange"
+                            @current-change="handleCurrentChange"
+                            :current-page="pagination.currentPage"
+                            :page-size="pagination.pageSize"
+                            layout="total, prev, pager, next, jumper"
+                            :total="pagination.total">
+                        </el-pagination>
+                    </div>
+
+                    <!-- 新增标签弹层 -->
+                    <div class="add-form">
+                        <el-dialog title="新增员工/修改员工" :visible.sync="dialogFormVisible">
+                            <el-form ref="dataAddForm" :model="formData" :rules="rules" label-position="right" label-width="100px">
+                                <el-row>
+                                    <el-col :span="12">
+                                        <el-form-item label="员工类型" prop="type">
+                                            <el-input v-model="formData.type"/>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="12">
+                                        <el-form-item label="员工姓名" prop="name">
+                                            <el-input v-model="formData.name"/>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="12">
+                                        <el-form-item label="入职时间" prop="entry_time">
+<!--                                            <el-input v-model="formData.entry_time" type="datetime"></el-input>-->
+                                            <el-date-picker type="datetime"
+                                                            placeholder="选择日期时间"
+                                                            class="inp" v-model="formData.entryTime"
+                                                            value-format="yyyy-MM-dd HH:mm:ss"
+                                                            format="yyyy-MM-dd HH:mm:ss"></el-date-picker>
+                                        </el-form-item>
+                                    </el-col>
+
+                                    <el-col :span="12">
+                                        <el-form-item label="性别" prop="sex">
+                                            <el-input v-model="formData.sex"/>
+                                        </el-form-item>
+                                    </el-col>
+
+                                </el-row>
+                                <el-row>
+                                    <el-col :span="24">
+                                        <el-form-item label="描述">
+                                            <el-input v-model="formData.description" type="textarea"></el-input>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+                            </el-form>
+                            <div slot="footer" class="dialog-footer">
+                                <el-button @click="dialogFormVisible = false">取消</el-button>
+                                <el-button type="primary" @click="saveEmp()">确定</el-button>
+                            </div>
+                        </el-dialog>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </body>
+
+    <!-- 引入组件库 -->
+    <script src="../js/vue.js"></script>
+    <script src="../plugins/elementui/index.js"></script>
+    <script type="text/javascript" src="../js/jquery.min.js"></script>
+    <script src="../js/axios-0.18.0.js"></script>
+
+    <script>
+        var vue = new Vue({
+            el: '#app',
+            data:{
+				dataList: [],//当前页要展示的分页列表数据
+                formData: {},//表单数据
+                pagination: {
+                    currentPage:1,
+                    pageSize:3,
+                    total:'',
+                },//分页模型数据，暂时弃用
+                dialogFormVisible:false,
+                //查询携带的条件
+                queryMap:{
+                    currentPage:1,
+                    pageSize:3,
+                }
+            },
+
+            //钩子函数，VUE对象初始化完成后自动执行
+            created() {
+                this.getAll();
+            },
+
+            methods: {
+
+                //清空表单数据
+                resetForm(){
+                    this.formData={}
+                },
+
+                //删除这个方法
+                deleteEmp(id) {
+                    this.$confirm("你是否确实删除", "提示", {
+                        confirmButtonText: "确定",
+                        cancelButtonText: "取消",
+                        type: "warning"
+                    }).then(() => {
+                        axios.delete("/emp/deleteById/"+id).then(()=>{
+                            this.getAll();
+                        });
+
+                    });
+                },
+
+                // 打开编辑对话框
+                openSave(id){
+                    if(id!=null){ //修改
+                        this.dialogFormVisible = true;
+                        axios.get("/emp/findById/"+id).then((res)=>{
+                            this.formData = res.data;
+                        });
+                    }else{//新增
+                        this.dialogFormVisible = true;
+                        this.resetForm();
+                    }
+                },
+
+                saveEmp(){
+                    if(this.formData.id){//修改
+                        this.dialogFormVisible = false;
+                        axios.put("/emp/update/"+this.formData.id,this.formData).then(()=>{
+                            this.getAll();
+                        })
+                    }else{//增加
+                        this.dialogFormVisible = false;
+                        axios.post("/emp/add",this.formData).then(()=>{
+                            this.getAll();
+                        })
+                    }
+                },
+
+                // findByName(){
+                //     axios.get("/emp/findByName/"+this.findName).then((res)=>{
+                //         this.dataList=res.data;
+                //     });
+                // },
+
+                findByName_2(){
+                    console.log("姓名："+this.queryMap.name)
+                    this.pagination.currentPage=1;
+                    this.getAll()
+                },
+               
+             //主页列表查询
+
+
+                getAll() {
+                    axios.get("/emp/findAll_2", {
+                        params: this.queryMap
+                    }).then((res)=>{
+                        this.dataList = res.data.records;
+                        this.pagination.currentPage = res.data.current;
+                        this.pagination.pageSize = res.data.size;
+                        this.pagination.total = res.data.total;
+                    });
+                },
+
+                //分页其他处理函数
+                handleSizeChange(val) {
+                    // console.log(`每页 ${val} 条`);
+                    // console.log(`更改后每页 ${val} 条`)
+                    this.pagination.pageSize=val
+                    this.getAll()
+
+
+                },
+                handleCurrentChange(val) {
+                    console.log(`当前页: ${val}`);
+                    this.pagination.currentPage=val
+                    this.getAll()
+                },
+            }
+        })
+    </script>
+</html>
